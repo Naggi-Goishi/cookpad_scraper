@@ -14,3 +14,19 @@ class CookpadScraperTestCase(unittest.TestCase):
 
     def test_pickup_recipes(self):
         self.assertTrue(len(self.cookpad.pickup_recipes()) > 0, 'Failed to get pickup_recipes')
+
+    def test_all_main_categories(self):
+        categories = self.cookpad.all_main_categories()
+        self.assertTrue(len(categories) > 0, 'Failed to get all main categories')
+
+    def test_recipes_from_category_page(self):
+        categories = self.cookpad.all_main_categories()
+
+        for category in categories:
+            print('#', end='')
+            recipes = self.cookpad.recipes_from_category_page(category.soup)
+            self.assertTrue(len(recipes) > 0, 'Failed to load recipes from category page')
+
+
+
+

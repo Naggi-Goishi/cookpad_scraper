@@ -11,7 +11,7 @@ class Recipe():
     # Returns attributes as dictionary
     def to_json(self):
         return {'title': self.title,'thumbnail_url': self.thumbnail_url,
-            'id': self.id, 'author_name': self.author_name, 'url': self.url}
+            'original_id': self.id, 'author_name': self.author_name, 'url': self.url}
 
     def validate_presence_of(self, properties):
         # If properties are list, validate all

@@ -1,6 +1,8 @@
 from cookpad_scraper.site_url import SiteUrl
 from cookpad_scraper.recipe import Recipe
 from cookpad_scraper.recipes import Recipes
+from cookpad_scraper.category import Category
+from cookpad_scraper.categories import Categories
 
 import requests
 import re
@@ -16,16 +18,52 @@ class CookpadScraper():
         if (id is None) and (url is None):
             raise ValueError("id or url must be specified")
 
-        if (id is not None):
-            self.soup = self._request(self.recipe_url(id))
-        else:
-            self.soup = self._request(url)
+        if (id is None):
+            id = self.parse_recipe_id(url)
+
+        self.soup = self._request(self.recipe_url(id))
 
         title         = self.get_title()
         thumbnail_url = self.get_thumbnail_url()
         author_name   = self.get_author_name()
 
         return Recipe(id, title, thumbnail_url, author_name)
+
+    def category(self, id=None, url=None, name=None):
+        if (id is None) and (url is None):
+            raise ValueError("id or url must be specified")
+
+        if (id is None):
+            id = self.parse_category_id(url)
+
+        self.soup = self._request(self.category_url(id))
+
+        if name is None:
+            name = self.soup.find('h1', 'category_title').get_text()
+
+        return Category(id, name, self.soup)
+
+    def recipes_from_category_page(self, soup=None):
+        self.set_soup(soup)
+        urls = []
+        recipes = Recipes()
+
+        while True:
+            recipe_titles = self.soup.find_all('a', 'recipe-title')
+            next_page     = self.soup.find('a', 'next_page')
+
+            if next_page is None:
+                break
+
+            for recipe_title in recipe_titles:
+                urls.append(self.base_url + recipe_title['href'])
+
+            self.soup = self._request(self.base_url + next_page['href'])
+
+        for url in urls:
+            recipes.append(self.recipe(url=url))
+
+        return recipes
 
     def get_title(self, soup=None):
         self.set_soup(soup)
@@ -39,12 +77,19 @@ class CookpadScraper():
         self.set_soup(soup)
         return self.soup.find(id='recipe_author_name').get_text()
 
-    def parse_id(self, url):
+    def parse_recipe_id(self, url):
         recipe_id_regex = re.compile('.*/recipe\/(\d*)')
+        return int(recipe_id_regex.match(url)[1])
+
+    def parse_category_id(self, url):
+        recipe_id_regex = re.compile('.*/category\/(\d*)')
         return int(recipe_id_regex.match(url)[1])
 
     def recipe_url(self, id):
         return self.base_url + '/recipe/' + str(id)
+
+    def category_url(self, id):
+        return self.base_url + '/category/' + str(id)
 
     def set_soup(self, soup):
         self.soup = soup or self.soup
@@ -52,7 +97,7 @@ class CookpadScraper():
         if self.soup is None:
             raise ValueError("soup must be present")
 
-    # Requests and returns list of original ids of pickup recipes in https://cookpad.com/pickup_recipes
+    # Requests and returns Recipes of pickup recipes in https://cookpad.com/pickup_recipes
     def pickup_recipes(self):
         soup = self._request(self.base_url + '/pickup_recipes')
         recipes = Recipes()
@@ -64,6 +109,26 @@ class CookpadScraper():
             recipes.append(self.recipe(url=url))
 
         return recipes
+
+    # Requests and returns Recipes in all main categories in https://cookpad.com/category/list
+    def all_main_categories(self):
+        soup = self._request(self.base_url + '/category/list')
+
+        # Get all sub categorie's title
+        titles = soup.find_all('h2', 'sub_category_title')
+
+        categories = Categories()
+
+        # Loop through titles and get category name and href
+        for title in titles:
+            href = title.contents[1]['href']
+            category = title.get_text()
+            url = self.base_url + href
+
+            categories.append(self.category(url=url))
+
+        return categories
+
 
     def _request(self, url):
         r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
