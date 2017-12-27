@@ -3,6 +3,8 @@ from cookpad_scraper.recipe import Recipe
 from cookpad_scraper.recipes import Recipes
 from cookpad_scraper.category import Category
 from cookpad_scraper.categories import Categories
+from cookpad_scraper.ingredient import Ingredient
+from cookpad_scraper.ingredients import Ingredients
 
 import requests
 import re
@@ -26,8 +28,9 @@ class CookpadScraper():
         title         = self.get_title()
         thumbnail_url = self.get_thumbnail_url()
         author_name   = self.get_author_name()
+        ingredients   = self.get_ingredients()
 
-        return Recipe(id, title, thumbnail_url, author_name)
+        return Recipe(id, title, thumbnail_url, author_name, ingredients=ingredients)
 
     def category(self, id=None, url=None, name=None):
         if (id is None) and (url is None):
@@ -76,6 +79,20 @@ class CookpadScraper():
     def get_author_name(self, soup=None):
         self.set_soup(soup)
         return self.soup.find(id='recipe_author_name').get_text()
+
+    def get_ingredients(self, soup=None):
+        self.set_soup(soup)
+        names = self.soup.find_all('div', 'ingredient_name')
+        quantities = self.soup.find_all('div', 'ingredient_quantity')
+        ingredients = Ingredients()
+
+        if len(names) != len(quantities):
+            raise Exception('The name and quantities are not same')
+
+        for i in range(0, len(names)):
+            ingredients.append(Ingredient(names[i].get_text(), quantities[i].get_text()))
+
+        return ingredients
 
     def parse_recipe_id(self, url):
         recipe_id_regex = re.compile('.*/recipe\/(\d*)')
